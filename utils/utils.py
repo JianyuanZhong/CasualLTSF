@@ -31,7 +31,7 @@ def make_noise(shape, type="Gaussian"):
 
 def dataset_preparation(args, num_tasks=10):
     if args.dataset.startswith("ETT"):
-        data_root = "../../../tsa/datasets/ETT-data"
+        data_root = "/research/d1/rshr/jyzhong//tsa/datasets/ETT-data"
         data_path = f"{args.dataset}.csv"
         dataloaders = []
 
@@ -40,7 +40,7 @@ def dataset_preparation(args, num_tasks=10):
         if data_path.startswith("ETTm"):
             dataset = Dataset_ETT_minute
     else:
-        data_root = f"../../../tsa/datasets/"
+        data_root = f"/research/d1/rshr/jyzhong//tsa/datasets/"
         if args.dataset == "ILI":
             data_path = "illness/national_illness.csv"
 

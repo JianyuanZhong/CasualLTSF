@@ -34,24 +34,24 @@ parser.add_argument("--dataset", default="Moons", type=str,
                     help="one of: {}".format(", ".join(sorted(datasets))))
 
 # Hyper-parameters
-parser.add_argument("--noise_dim", default=512, type=int,
+parser.add_argument("--noise_dim", default=768, type=int,
                     help="the dimension of the LSTM input noise.")
 parser.add_argument("--num_rnn_layer", default=10, type=int,
                     help="the number of RNN hierarchical layers.")
-parser.add_argument("--latent_dim", default=512, type=int,
+parser.add_argument("--latent_dim", default=768, type=int,
                     help="the latent dimension of RNN variables.")
-parser.add_argument("--hidden_dim", default=512, type=int,
+parser.add_argument("--hidden_dim", default=768, type=int,
                     help="the latent dimension of RNN variables.")
 parser.add_argument("--noise_type", choices=["Gaussian", "Uniform"], default="Gaussian",
                     help="The noise type to feed into the generator.")
 
 parser.add_argument("--num_workers", default=0, type=int,
                     help="the number of threads for loading data.")
-parser.add_argument("--epoches", default=200, type=int,
+parser.add_argument("--epoches", default=100, type=int,
                     help="the number of epoches for each task.")
 parser.add_argument("--batch_size", default=128, type=int,
                     help="the number of epoches for each task.")
-parser.add_argument("--learning_rate", default=1e-3, type=float,
+parser.add_argument("--learning_rate", default=5e-3, type=float,
                     help="the unified learning rate for each single task.")
 
 parser.add_argument("--is_test", default=True, type=bool,
@@ -167,8 +167,8 @@ def evaluation(dataloader, rnn_unit, args, input_E, input_hidden):
                 trues.append(true)
 
                 # tepoch.set_postfix(loss=mse.item(), mae=mae.item())
-    preds = np.concatenate(preds, axis=0)
-    trues = np.concatenate(trues, axis=0)
+    preds = np.concatenate(preds, axis=0).reshape(-1, pred.shape[-2], pred.shape[-1])
+    trues = np.concatenate(trues, axis=0).reshape(-1, true.shape[-2], true.shape[-1])
     mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
     log("Testing MAE is {}".format(mae))
     log("Testing MSE is {}".format(mse))
