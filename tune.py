@@ -12,7 +12,6 @@ import time
 import datetime
 from tqdm import tqdm
 import argparse
-import json
 
 # Import model
 from NLinear import Model
@@ -20,7 +19,6 @@ from model_drained import RNN
 # Import functions
 from utils import dataset_preparation, make_noise, metric
 
-seed_everything(123, workers=True)
 # set precision for rtx3090
 torch.set_float32_matmul_precision('highest')
 
@@ -61,7 +59,7 @@ parser.add_argument("--is_test", default=True, type=bool,
 
 # forecasting task
 parser.add_argument('--seq_len', type=int, default=336, help='input sequence length')
-parser.add_argument('--label_len', type=int, default=0, help='start token length')
+parser.add_argument('--label_len', type=int, default=48, help='start token length')
 parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
 
 
@@ -69,16 +67,13 @@ parser.add_argument('--pred_len', type=int, default=96, help='prediction sequenc
 parser.add_argument('--individual', action='store_true', default=False, help='DLinear: a linear layer for each variate(channel) individually')
 parser.add_argument('--enc_in', type=int, default=7, help='encoder input size') # DLinear with --individual, use this hyperparameter as the number of channels
 
-# config
-parser.add_argument('--config_pth', type=str, help='config from tuning experiments')
-
 args = parser.parse_args()
 print(f"dim: {args.noise_dim}")
 
 # setup logging
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
-log_dir = f"log-best-{args.dataset}"
+log_dir = f"log-{args.dataset}-seq{args.seq_len}"
 if not os.path.isdir(log_dir):
     os.makedirs(log_dir)
 log_file = '{}/log_pred{}_{}.log'.format(log_dir, args.pred_len, datetime.datetime.now().strftime("%Y_%B_%d_%I-%M-%S%p"))
@@ -180,11 +175,15 @@ def evaluation(dataloader, rnn_unit, args, input_E, input_hidden):
 
 
 def trail(args):
+    # reset the state of random generators 
+    # for reproducibility
+    seed_everything(123, workers=True)
+    
     log('use {} data'.format(args.dataset))
     log('-'*40)
     
     if args.dataset.startswith('ETTh'):
-        num_tasks=4
+        num_tasks=5
         data_size=args.seq_len
     if args.dataset.startswith('ETTm'):
         num_tasks=5
@@ -226,13 +225,10 @@ def tune_exp(config, args):
     args.latent_dim = config["latent_dim"]
     args.hidden_dim = config["hidden_dim"]
     args.learning_rate = config["learning_rate"]
-    # args.lr = config["lr"]
     args.batch_size = config["batch_size"]
     args.epoches = config["epoches"]
     args.num_rnn_layer = config["num_rnn_layer"]
     args.beta = config["beta"]
-
-    log(args)
 
     val_mse, val_mae, test_mse, test_mae = trail(args)
     
@@ -240,8 +236,22 @@ def tune_exp(config, args):
 
 def main(args, num_tails=10):
     configs = []
-    with open(args.config_pth, 'r') as f:
-        configs.append(json.load(f))
+    for i in range(num_tails):
+        dim = np.random.choice([512, 256, 128, 768, 64, 1024])
+        config = {
+            "noise_dim": dim,
+            "latent_dim": dim,
+            "hidden_dim": dim,
+            "learning_rate": np.random.choice([5e-3, 2.5e-3, 1e-3, 5e-4]),
+            "batch_size": int(np.random.choice([64, 128, 256])),
+            "epoches": int(np.random.choice([100, 120, 150, 200, 80, 50])),
+            # "epoches": int(np.random.choice([10])),
+            "num_rnn_layer": int(np.random.choice([10, 5, 12, 20])),
+            "beta": np.random.choice([0.1, 0.33, 0.4, 0.67, 0.9])
+        }
+        configs.append(config)
+
+        log(f"Generated config {i}: {config}")
 
     best_result_ = 1000
     best_result = {}
@@ -271,7 +281,6 @@ def main(args, num_tails=10):
 
 if __name__ == "__main__":
     main(args, num_tails=100)
-
 
 
 

@@ -1,0 +1,1 @@
+{"noise_dim": 512, "latent_dim": 512, "hidden_dim": 512, "learning_rate": 0.005, "batch_size": 256, "epoches": 200, "num_rnn_layer": 20, "beta": 0.33}

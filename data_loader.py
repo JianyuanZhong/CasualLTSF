@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-import os
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
@@ -25,7 +25,7 @@ class Dataset_ETT_hour(Dataset):
             self.label_len = size[1]
             self.pred_len = size[2]
         # init
-        assert taskid in [0, 1, 2, 3, 4,]
+        assert taskid in [i for i in range(5)]
         self.taskid = taskid
 
         self.features = features
@@ -40,18 +40,20 @@ class Dataset_ETT_hour(Dataset):
 
     def __read_data__(self):
         self.scaler = StandardScaler()
+        self.dummy_scaler = StandardScaler()
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
 
         offset = 30 * 24 * 4
-        # border1s_ = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
-        # border2s_ = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
+        border1s_ = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
+        border2s_ = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
         # [0, 4, 8, 12, 16, 20]
-        border1s = [0] + [i * offset - self.seq_len for i in range(1, 5)]
-        border2s = [i * offset for i in range(1, 6)]
+        border1s = [0] + [i * offset - self.seq_len for i in range(1, 3)] + [border1s_[-2], border1s_[-1]]
+        border2s = [i * offset for i in range(1, 4)] + [border2s_[-2], border2s_[-1]]
 
-        # print(border1s, border1s_)
-        # print(border2s, border2s_)
+        print(border1s, border1s_)
+        print(border2s, border2s_)
+        print(len(border1s))
 
         border1 = border1s[self.taskid]
         border2 = border2s[self.taskid]
@@ -64,9 +66,13 @@ class Dataset_ETT_hour(Dataset):
             df_data = df_raw[[self.target]]
 
         if self.scale:
-            train_data = df_data[border1s[0]:border2s[3]]
+            train_data = df_data[border1s_[0]:border2s_[0]]
             self.scaler.fit(train_data.values)
             data = self.scaler.transform(df_data.values)
+
+            # recover dummy scaler
+            train_data_dummy = df_data[border1s[0]:border2s[2]]
+            self.dummy_scaler.fit(train_data_dummy.values)
         else:
             data = df_data.values
 
@@ -100,6 +106,8 @@ class Dataset_ETT_hour(Dataset):
         return seq_x, seq_y, seq_x_mark, seq_y_mark
 
     def __len__(self):
+        # print(len(self.data_x), self.seq_len, self.pred_len)
+        # print(len(self.data_x) - self.seq_len - self.pred_len + 1)
         return len(self.data_x) - self.seq_len - self.pred_len + 1
 
     def inverse_transform(self, data):
@@ -139,8 +147,8 @@ class Dataset_ETT_minute(Dataset):
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
 
-        border1s_ = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
-        border2s_ = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
+        border1s_ = [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len]
+        border2s_ = [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
 
         offset = 30 * 24 * 4 * 4
         border1s = [0] + [i * offset - self.seq_len for i in range(1, 5)]
@@ -156,7 +164,7 @@ class Dataset_ETT_minute(Dataset):
             df_data = df_raw[[self.target]]
 
         if self.scale:
-            train_data = df_data[border1s[0]:border2s[2]]
+            train_data = df_data[border1s_[0]:border2s_[0]]
             self.scaler.fit(train_data.values)
             data = self.scaler.transform(df_data.values)
         else:
